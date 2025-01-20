@@ -55,10 +55,6 @@ func (r *RuleObjectCacheMock) GetPods() []*corev1.Pod {
 	return []*corev1.Pod{{Spec: *r.podSpec, Status: *r.podStatus}}
 }
 
-func (r *RuleObjectCacheMock) IsPreRunningContainer(containerID string) bool {
-	return false
-}
-
 func (r *RuleObjectCacheMock) K8sObjectCache() objectcache.K8sObjectCache {
 	return r
 }

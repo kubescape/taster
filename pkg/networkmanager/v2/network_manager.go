@@ -50,13 +50,13 @@ type NetworkManager struct {
 	k8sClient                k8sclient.K8sClientInterface
 	k8sObjectCache           objectcache.K8sObjectCache
 	storageClient            storage.StorageClient
-	preRunningContainerIDs   mapset.Set[string]
 	dnsResolverClient        dnsmanager.DNSResolver
+	startTime                time.Time
 }
 
 var _ networkmanager.NetworkManagerClient = (*NetworkManager)(nil)
 
-func CreateNetworkManager(ctx context.Context, cfg config.Config, clusterName string, k8sClient k8sclient.K8sClientInterface, storageClient storage.StorageClient, dnsResolverClient dnsmanager.DNSResolver, preRunningContainerIDs mapset.Set[string], k8sObjectCache objectcache.K8sObjectCache) *NetworkManager {
+func CreateNetworkManager(ctx context.Context, cfg config.Config, clusterName string, k8sClient k8sclient.K8sClientInterface, storageClient storage.StorageClient, dnsResolverClient dnsmanager.DNSResolver, k8sObjectCache objectcache.K8sObjectCache) *NetworkManager {
 	return &NetworkManager{
 		cfg:                     cfg,
 		clusterName:             clusterName,
@@ -69,7 +69,7 @@ func CreateNetworkManager(ctx context.Context, cfg config.Config, clusterName st
 		trackedContainers:       mapset.NewSet[string](),
 		removedContainers:       mapset.NewSet[string](),
 		droppedEventsContainers: mapset.NewSet[string](),
-		preRunningContainerIDs:  preRunningContainerIDs,
+		startTime:               time.Now(),
 	}
 }
 
@@ -168,8 +168,14 @@ func (nm *NetworkManager) isValidEvent(event tracernetworktype.Event) bool {
 }
 
 func (nm *NetworkManager) monitorContainer(ctx context.Context, container *containercollection.Container, watchedContainer *utils.WatchedContainerData) error {
+	logger.L().Debug("NetworkManager - start monitor on container",
+		helpers.Interface("preRunning", watchedContainer.PreRunningContainer),
+		helpers.Int("container index", watchedContainer.ContainerIndex),
+		helpers.String("container ID", watchedContainer.ContainerID),
+		helpers.String("k8s workload", watchedContainer.K8sContainerID))
+
 	// set completion status & status as soon as we start monitoring the container
-	if nm.preRunningContainerIDs.Contains(container.Runtime.ContainerID) {
+	if watchedContainer.PreRunningContainer {
 		watchedContainer.SetCompletionStatus(utils.WatchedContainerCompletionStatusPartial)
 	} else {
 		watchedContainer.SetCompletionStatus(utils.WatchedContainerCompletionStatusFull)
@@ -432,7 +438,9 @@ func (nm *NetworkManager) startNetworkMonitoring(ctx context.Context, container 
 	ctx, span := otel.Tracer("").Start(ctx, "NetworkManager.startNetworkMonitoring")
 	defer span.End()
 
-	if !nm.cfg.EnableRuntimeDetection && nm.preRunningContainerIDs.Contains(container.Runtime.ContainerID) {
+	preRunning := time.Unix(0, int64(container.Runtime.ContainerStartedAt)).Before(nm.startTime)
+
+	if !nm.cfg.EnableRuntimeDetection && preRunning {
 		logger.L().Debug("NetworkManager - skip container", helpers.String("reason", "preRunning container"),
 			helpers.String("container ID", container.Runtime.ContainerID),
 			helpers.String("k8s workload", k8sContainerID))
@@ -443,13 +451,14 @@ func (nm *NetworkManager) startNetworkMonitoring(ctx context.Context, container 
 	nm.watchedContainerChannels.Set(container.Runtime.ContainerID, syncChannel)
 
 	watchedContainer := &utils.WatchedContainerData{
-		ContainerID:      container.Runtime.ContainerID,
-		ImageID:          container.Runtime.ContainerImageDigest,
-		ImageTag:         container.Runtime.ContainerImageName,
-		UpdateDataTicker: time.NewTicker(utils.AddJitter(nm.cfg.InitialDelay, nm.cfg.MaxJitterPercentage)),
-		SyncChannel:      syncChannel,
-		K8sContainerID:   k8sContainerID,
-		NsMntId:          container.Mntns,
+		ContainerID:         container.Runtime.ContainerID,
+		ImageID:             container.Runtime.ContainerImageDigest,
+		ImageTag:            container.Runtime.ContainerImageName,
+		UpdateDataTicker:    time.NewTicker(utils.AddJitter(nm.cfg.InitialDelay, nm.cfg.MaxJitterPercentage)),
+		SyncChannel:         syncChannel,
+		K8sContainerID:      k8sContainerID,
+		NsMntId:             container.Mntns,
+		PreRunningContainer: preRunning,
 	}
 
 	// don't start monitoring until we have the instanceID - need to retry until the Pod is updated
