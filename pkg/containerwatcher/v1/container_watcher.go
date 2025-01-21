@@ -147,10 +147,8 @@ type IGContainerWatcher struct {
 	sshWorkerChan          chan *tracersshtype.Event
 	httpWorkerChan         chan *tracerhttptype.Event
 
-	preRunningContainersIDs mapset.Set[string]
-	timeBasedContainers     mapset.Set[string] // list of containers to track based on ticker
-	ruleManagedPods         mapset.Set[string] // list of pods to track based on rules
-	metrics                 metricsmanager.MetricsManager
+	ruleManagedPods mapset.Set[string] // list of pods to track based on rules
+	metrics         metricsmanager.MetricsManager
 	// cache
 	ruleBindingPodNotify *chan rulebinding.RuleBindingNotify
 	// container runtime
@@ -161,7 +159,7 @@ type IGContainerWatcher struct {
 
 var _ containerwatcher.ContainerWatcher = (*IGContainerWatcher)(nil)
 
-func CreateIGContainerWatcher(cfg config.Config, applicationProfileManager applicationprofilemanager.ApplicationProfileManagerClient, k8sClient *k8sinterface.KubernetesApi, igK8sClient *containercollection.K8sClient, networkManagerClient networkmanager.NetworkManagerClient, dnsManagerClient dnsmanager.DNSManagerClient, metrics metricsmanager.MetricsManager, ruleManager rulemanager.RuleManagerClient, malwareManager malwaremanager.MalwareManagerClient, sbomManager sbommanager.SbomManagerClient, preRunningContainers mapset.Set[string], ruleBindingPodNotify *chan rulebinding.RuleBindingNotify, runtime *containerutilsTypes.RuntimeConfig, thirdPartyEventReceivers *maps.SafeMap[utils.EventType, mapset.Set[containerwatcher.EventReceiver]], thirdPartyEnricher containerwatcher.ThirdPartyEnricher, processManager processmanager.ProcessManagerClient) (*IGContainerWatcher, error) { // Use container collection to get notified for new containers
+func CreateIGContainerWatcher(cfg config.Config, applicationProfileManager applicationprofilemanager.ApplicationProfileManagerClient, k8sClient *k8sinterface.KubernetesApi, igK8sClient *containercollection.K8sClient, networkManagerClient networkmanager.NetworkManagerClient, dnsManagerClient dnsmanager.DNSManagerClient, metrics metricsmanager.MetricsManager, ruleManager rulemanager.RuleManagerClient, malwareManager malwaremanager.MalwareManagerClient, sbomManager sbommanager.SbomManagerClient, ruleBindingPodNotify *chan rulebinding.RuleBindingNotify, runtime *containerutilsTypes.RuntimeConfig, thirdPartyEventReceivers *maps.SafeMap[utils.EventType, mapset.Set[containerwatcher.EventReceiver]], thirdPartyEnricher containerwatcher.ThirdPartyEnricher, processManager processmanager.ProcessManagerClient) (*IGContainerWatcher, error) { // Use container collection to get notified for new containers
 	containerCollection := &containercollection.ContainerCollection{}
 	// Create a tracer collection instance
 	tracerCollection, err := tracercollection.NewTracerCollection(containerCollection)
@@ -433,19 +431,18 @@ func CreateIGContainerWatcher(cfg config.Config, applicationProfileManager appli
 		containerCollection: containerCollection,
 		tracerCollection:    tracerCollection,
 		// Worker pools
-		capabilitiesWorkerPool:  capabilitiesWorkerPool,
-		execWorkerPool:          execWorkerPool,
-		openWorkerPool:          openWorkerPool,
-		networkWorkerPool:       networkWorkerPool,
-		dnsWorkerPool:           dnsWorkerPool,
-		randomxWorkerPool:       randomxWorkerPool,
-		symlinkWorkerPool:       symlinkWorkerPool,
-		hardlinkWorkerPool:      hardlinkWorkerPool,
-		sshdWorkerPool:          sshWorkerPool,
-		httpWorkerPool:          httpWorkerPool,
-		ptraceWorkerPool:        ptraceWorkerPool,
-		metrics:                 metrics,
-		preRunningContainersIDs: preRunningContainers,
+		capabilitiesWorkerPool: capabilitiesWorkerPool,
+		execWorkerPool:         execWorkerPool,
+		openWorkerPool:         openWorkerPool,
+		networkWorkerPool:      networkWorkerPool,
+		dnsWorkerPool:          dnsWorkerPool,
+		randomxWorkerPool:      randomxWorkerPool,
+		symlinkWorkerPool:      symlinkWorkerPool,
+		hardlinkWorkerPool:     hardlinkWorkerPool,
+		sshdWorkerPool:         sshWorkerPool,
+		httpWorkerPool:         httpWorkerPool,
+		ptraceWorkerPool:       ptraceWorkerPool,
+		metrics:                metrics,
 
 		// Channels
 		capabilitiesWorkerChan: make(chan *tracercapabilitiestype.Event, 1000),
@@ -462,7 +459,6 @@ func CreateIGContainerWatcher(cfg config.Config, applicationProfileManager appli
 
 		// cache
 		ruleBindingPodNotify:         ruleBindingPodNotify,
-		timeBasedContainers:          mapset.NewSet[string](),
 		ruleManagedPods:              mapset.NewSet[string](),
 		runtime:                      runtime,
 		thirdPartyTracers:            mapset.NewSet[containerwatcher.CustomTracer](),

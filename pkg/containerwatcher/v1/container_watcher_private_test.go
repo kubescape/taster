@@ -144,27 +144,22 @@ func TestAddRunningContainers(t *testing.T) {
 			slices.Sort(tt.containersToRemove)
 
 			ch := IGContainerWatcher{
-				ruleManagedPods:         mapset.NewSet[string](tt.preRuleManagedPods...),
-				timeBasedContainers:     mapset.NewSet[string](tt.preTimeBasedContainers...),
-				preRunningContainersIDs: mapset.NewSet[string](),
-				containerCollection:     &containercollection.ContainerCollection{},
-				tracerCollection:        &tracercollection.TracerCollection{},
-				namespace:               tt.ignore.namespace,
-				podName:                 tt.ignore.name,
+				ruleManagedPods:     mapset.NewSet[string](tt.preRuleManagedPods...),
+				containerCollection: &containercollection.ContainerCollection{},
+				tracerCollection:    &tracercollection.TracerCollection{},
+				namespace:           tt.ignore.namespace,
+				podName:             tt.ignore.name,
 			}
 
 			// Mock the calls to the Kubernetes client here
 			k8sMock := NewIGK8sClientMock()
 
-			ch.addRunningContainers(k8sMock, tt.notify)
+			ch.addRunningContainers(tt.notify)
 
 			r := ch.ruleManagedPods.ToSlice()
-			p := ch.preRunningContainersIDs.ToSlice()
 			slices.Sort(r)
-			slices.Sort(p)
 
 			assert.Equal(t, tt.expectedRuleManagedPods, r)
-			assert.Equal(t, tt.expectedPreRunning, p)
 
 			for _, containerID := range tt.containersToRemove {
 				assert.False(t, ch.ruleManagedPods.Contains(containerID))
@@ -240,11 +235,9 @@ func TestUnregisterContainer(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 
 			ch := IGContainerWatcher{
-				ruleManagedPods:         mapset.NewSet[string](tt.preRuleManagedPods...),
-				timeBasedContainers:     mapset.NewSet[string](tt.preTimeBasedContainers...),
-				preRunningContainersIDs: mapset.NewSet[string](),
-				containerCollection:     &containercollection.ContainerCollection{},
-				tracerCollection:        &tracercollection.TracerCollection{},
+				ruleManagedPods:     mapset.NewSet[string](tt.preRuleManagedPods...),
+				containerCollection: &containercollection.ContainerCollection{},
+				tracerCollection:    &tracercollection.TracerCollection{},
 			}
 
 			for pod, containers := range tt.podToContainers {

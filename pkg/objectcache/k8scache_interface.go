@@ -1,7 +1,6 @@
 package objectcache
 
 import (
-	mapset "github.com/deckarep/golang-set/v2"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -10,16 +9,14 @@ type K8sObjectCache interface {
 	GetPodStatus(namespace, podName string) *corev1.PodStatus
 	GetApiServerIpAddress() string
 	GetPods() []*corev1.Pod
-	IsPreRunningContainer(containerID string) bool
 }
 
 var _ K8sObjectCache = (*K8sObjectCacheMock)(nil)
 
 type K8sObjectCacheMock struct {
-	ApiServerIpAddress      string
-	PodSpec                 corev1.PodSpec
-	PodStatus               corev1.PodStatus
-	PreRunningContainersIDs mapset.Set[string]
+	ApiServerIpAddress string
+	PodSpec            corev1.PodSpec
+	PodStatus          corev1.PodStatus
 }
 
 func (k *K8sObjectCacheMock) GetPodSpec(_, _ string) *corev1.PodSpec {
@@ -33,8 +30,4 @@ func (k *K8sObjectCacheMock) GetApiServerIpAddress() string {
 }
 func (k *K8sObjectCacheMock) GetPods() []*corev1.Pod {
 	return []*corev1.Pod{{Spec: k.PodSpec, Status: k.PodStatus}}
-}
-
-func (k *K8sObjectCacheMock) IsPreRunningContainer(containerID string) bool {
-	return k.PreRunningContainersIDs.Contains(containerID)
 }
